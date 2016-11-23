@@ -46,18 +46,20 @@ public class HTTPNetworkTransport: NetworkTransport {
   let url: URL
   let session: URLSession
   let serializationFormat = JSONSerializationFormat()
-
+  public var headers:[String:String] = [:]
+    
   public init(url: URL, configuration: URLSessionConfiguration = URLSessionConfiguration.default) {
     self.url = url
     self.session = URLSession(configuration: configuration)
   }
 
-  public func send<Operation: GraphQLOperation>(operation: Operation, completionHandler: @escaping GraphQLOperationResponseHandler<Operation>) -> Cancellable {
+    public func send<Operation: GraphQLOperation>(operation: Operation, completionHandler: @escaping GraphQLOperationResponseHandler<Operation>) -> Cancellable {
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
-
+    request.allHTTPHeaderFields = headers
+        
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
+        
     let stringVar = try! serializationFormat.serialize(map: operation.variables!)
     var dataString = String(data: stringVar, encoding: String.Encoding.utf8)!
 
