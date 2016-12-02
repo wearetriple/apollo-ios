@@ -45,7 +45,7 @@ struct GraphQLResponseError: Error, LocalizedError {
 public class HTTPNetworkTransport: NetworkTransport {
   let url: URL
   let session: URLSession
-  let serializationFormat = JSONSerializationFormat()
+  let serializationFormat = JSONSerializationFormat.self
   public var headers:[String:String] = [:]
 
   public init(url: URL, configuration: URLSessionConfiguration = URLSessionConfiguration.default) {
@@ -53,19 +53,18 @@ public class HTTPNetworkTransport: NetworkTransport {
     self.session = URLSession(configuration: configuration)
   }
 
-  //public func send<Operation: GraphQLOperation>(operation: Operation, completionHandler: @escaping GraphQLOperationResponseHandler<Operation>) -> Cancellable {
-  public func send<Operation: GraphQLOperation>(operation: Operation, completionHandler: @escaping (GraphQLResponse<Operation>?, Error?) -> Void) -> Cancellable {
+    public func send<Operation: GraphQLOperation>(operation: Operation, completionHandler: @escaping (GraphQLResponse<Operation>?, Error?) -> Void) -> Cancellable {
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.allHTTPHeaderFields = headers
         
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
-    let stringVar = try! serializationFormat.serialize(map: operation.variables!)
+    let stringVar = try! serializationFormat.serialize(value: operation.variables!)
     var dataString = String(data: stringVar, encoding: String.Encoding.utf8)!
 
     let body: GraphQLMap = ["query": type(of: operation).queryDocument, "variables": dataString]
-    request.httpBody = try! serializationFormat.serialize(map: body)
+    request.httpBody = try! serializationFormat.serialize(value: body)
 
     let task = session.dataTask(with: request) { (data: Data?, response: URLResponse?, error: Error?) in
       if error != nil {
