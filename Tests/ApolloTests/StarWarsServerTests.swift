@@ -13,7 +13,7 @@ class StarWarsServerTests: XCTestCase {
       ("testCreateReviewForEpisode", testCreateReviewForEpisode),
     ]
   }
-  
+
   var client: ApolloClient!
 
   override func setUp() {
@@ -27,20 +27,46 @@ class StarWarsServerTests: XCTestCase {
       XCTAssertEqual(data.hero?.name, "R2-D2")
     }
   }
+  
+  func testHeroNameConditionalInclusionQuery() {
+    fetch(query: HeroNameConditionalInclusionQuery(includeName: true)) { (data) in
+      XCTAssertEqual(data.hero?.name, "R2-D2")
+    }
+    
+    fetch(query: HeroNameConditionalInclusionQuery(includeName: false)) { (data) in
+      XCTAssertNil(data.hero?.name)
+    }
+  }
+  
+  func testHeroNameConditionalExclusionQuery() {
+    fetch(query: HeroNameConditionalExclusionQuery(skipName: true)) { (data) in
+      XCTAssertNil(data.hero?.name)
+    }
+    
+    fetch(query: HeroNameConditionalExclusionQuery(skipName: false)) { (data) in
+      XCTAssertEqual(data.hero?.name, "R2-D2")
+    }
+  }
 
   func testHeroAndFriendsNamesQuery() {
     fetch(query: HeroAndFriendsNamesQuery(episode: .jedi)) { (data) in
       XCTAssertEqual(data.hero?.name, "R2-D2")
       let friendsNames = data.hero?.friends?.flatMap { $0?.name }
-      XCTAssertEqual(friendsNames!, ["Luke Skywalker", "Han Solo", "Leia Organa"])
+      XCTAssertEqual(friendsNames, ["Luke Skywalker", "Han Solo", "Leia Organa"])
     }
   }
 
   func testHeroAppearsInQuery() {
     fetch(query: HeroAppearsInQuery()) { (data) in
       XCTAssertEqual(data.hero?.name, "R2-D2")
-      let episodes = data.hero?.appearsIn.flatMap { $0 }
-      XCTAssertEqual(episodes!, [.newhope, .empire, .jedi])
+      XCTAssertEqual(data.hero?.appearsIn, [.newhope, .empire, .jedi])
+    }
+  }
+
+  func testHumanWithNullHeightQuery() {
+    fetch(query: HumanWithNullHeightQuery()) { (data) in
+      XCTAssertEqual(data.human?.name, "Wilhuff Tarkin")
+      XCTAssertNil(data.human?.mass)
     }
   }
 
@@ -79,11 +105,37 @@ class StarWarsServerTests: XCTestCase {
       XCTAssertEqual(human.height, 1.72)
     }
   }
-  
+
   func testCreateReviewForEpisode() {
     perform(mutation: CreateReviewForEpisodeMutation(episode: .jedi, review: ReviewInput(stars: 5, commentary: "This is a great movie!"))) { (data) in
       XCTAssertEqual(data.createReview?.stars, 5)
       XCTAssertEqual(data.createReview?.commentary, "This is a great movie!")
+    }
+  }
+  
+  func testHeroTypeDependentAliasedFieldDroid() {
+    fetch(query: HeroTypeDependentAliasedFieldQuery(episode: .jedi)) { (data) in
+      XCTAssertEqual(data.hero?.asDroid?.property, "Astromech")
+      XCTAssertNil(data.hero?.asHuman?.property)
+    }
+  }
+  
+  func testHeroTypeDependentAliasedFieldHuman() {
+    fetch(query: HeroTypeDependentAliasedFieldQuery(episode: .empire)) { (data) in
+      XCTAssertEqual(data.hero?.asHuman?.property, "Tatooine")
+      XCTAssertNil(data.hero?.asDroid?.property)
+    }
+  }
+  
+  func testHeroParentTypeDependentFieldDroid() {
+    fetch(query: HeroParentTypeDependentFieldQuery(episode: .jedi)) { (data) in
+      XCTAssertEqual(data.hero?.asDroid?.friends?.first??.asHuman?.height?.rounded(), 2)
+    }
+  }
+  
+  func testHeroParentTypeDependentFieldHuman() {
+    fetch(query: HeroParentTypeDependentFieldQuery(episode: .empire)) { (data) in
+      XCTAssertEqual(data.hero?.asHuman?.friends?.first??.asHuman?.height?.rounded(), 6)
     }
   }
 
@@ -107,25 +159,25 @@ class StarWarsServerTests: XCTestCase {
 
     waitForExpectations(timeout: 1, handler: nil)
   }
-  
+
   private func perform<Mutation: GraphQLMutation>(mutation: Mutation, completionHandler: @escaping (_ data: Mutation.Data) -> Void) {
     let expectation = self.expectation(description: "Performing mutation")
-    
+
     _ = client.perform(mutation: mutation) { (result, error) in
       defer { expectation.fulfill() }
-      
+
       if let error = error { XCTFail("Error while performing mutation: \(error.localizedDescription)");  return }
       guard let result = result else { XCTFail("No mutation result");  return }
-      
+
       if let errors = result.errors {
         XCTFail("Errors in mutation result: \(errors)")
       }
-      
+
       guard let data = result.data else { XCTFail("No mutation result data");  return }
-      
+
       completionHandler(data)
     }
-    
+
     waitForExpectations(timeout: 1, handler: nil)
   }
 }
