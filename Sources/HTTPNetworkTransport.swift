@@ -65,7 +65,9 @@ public class HTTPNetworkTransport: NetworkTransport {
     
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     
-    let body: GraphQLMap = ["query": type(of: operation).queryDocument, "variables": operation.variables]
+    let stringVar = try! serializationFormat.serialize(value: operation.variables)
+    var dataString = String(data: stringVar, encoding: String.Encoding.utf8)
+    let body: GraphQLMap = ["query": type(of: operation).queryDocument, "variables": dataString]
     request.httpBody = try! serializationFormat.serialize(value: body)
     
     let task = session.dataTask(with: request) { (data: Data?, response: URLResponse?, error: Error?) in
