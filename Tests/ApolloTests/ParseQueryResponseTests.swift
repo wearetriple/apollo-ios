@@ -7,32 +7,38 @@ class ParseQueryResponseTests: XCTestCase {
       ("testHeroNameQuery", testHeroNameQuery),
       ("testHeroNameQueryWithMissingValue", testHeroNameQueryWithMissingValue),
       ("testHeroNameQueryWithWrongType", testHeroNameQueryWithWrongType),
-      ("testHeroAndFriendsNamesQuery", testHeroAndFriendsNamesQuery),
       ("testHeroAppearsInQuery", testHeroAppearsInQuery),
+      ("testHeroAndFriendsNamesQuery", testHeroAndFriendsNamesQuery),
       ("testTwoHeroesQuery", testTwoHeroesQuery),
-      ("testHeroDetailsQueryHuman", testHeroDetailsQueryHuman),
       ("testHeroDetailsQueryDroid", testHeroDetailsQueryDroid),
+      ("testHeroDetailsQueryHuman", testHeroDetailsQueryHuman),
       ("testHeroDetailsQueryUnknownTypename", testHeroDetailsQueryUnknownTypename),
       ("testHeroDetailsQueryMissingTypename", testHeroDetailsQueryMissingTypename),
-      ("testHeroDetailsFragmentQueryHuman", testHeroDetailsFragmentQueryHuman),
+      ("testHeroDetailsWithFragmentQueryDroid", testHeroDetailsWithFragmentQueryDroid),
+      ("testHeroDetailsWithFragmentQueryHuman", testHeroDetailsWithFragmentQueryHuman),
+      ("testErrorResponseWithoutLocation", testErrorResponseWithoutLocation),
+      ("testErrorResponseWithLocation", testErrorResponseWithLocation),
     ]
   }
   
   func testHeroNameQuery() throws {
     let query = HeroNameQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["__typename": "Droid", "name": "R2-D2"]
       ]
     ])
-    let result = try response.parseResult()
+    
+    let (result, _) = try response.parseResult()
 
     XCTAssertEqual(result.data?.hero?.name, "R2-D2")
   }
 
   func testHeroNameQueryWithMissingValue() {
     let query = HeroNameQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["__typename": "Droid"]
       ]
@@ -50,7 +56,8 @@ class ParseQueryResponseTests: XCTestCase {
 
   func testHeroNameQueryWithWrongType() {
     let query = HeroNameQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["__typename": "Droid", "name": 10]
       ]
@@ -66,10 +73,25 @@ class ParseQueryResponseTests: XCTestCase {
       }
     }
   }
+  
+  func testHeroAppearsInQuery() throws {
+    let query = HeroAppearsInQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
+      "data": [
+        "hero": ["__typename": "Droid", "appearsIn": ["NEWHOPE", "EMPIRE", "JEDI"]]
+      ]
+      ])
+    
+    let (result, _) = try response.parseResult()
+    
+    XCTAssertEqual(result.data?.hero?.appearsIn, [.newhope, .empire, .jedi])
+  }
 
   func testHeroAndFriendsNamesQuery() throws {
-    let query = HeroAndFriendsNamesQuery(episode: .jedi)
-    let response = GraphQLResponse(operation: query, rootObject: [
+    let query = HeroAndFriendsNamesQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": [
           "name": "R2-D2",
@@ -83,92 +105,85 @@ class ParseQueryResponseTests: XCTestCase {
       ]
     ])
     
-    let result = try response.parseResult()
+    let (result, _) = try response.parseResult()
 
     XCTAssertEqual(result.data?.hero?.name, "R2-D2")
     let friendsNames = result.data?.hero?.friends?.flatMap { $0?.name }
     XCTAssertEqual(friendsNames, ["Luke Skywalker", "Han Solo", "Leia Organa"])
   }
 
-  func testHeroAppearsInQuery() throws {
-    let query = HeroAppearsInQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
-      "data": [
-        "hero": ["__typename": "Droid", "name": "R2-D2", "appearsIn": ["NEWHOPE", "EMPIRE", "JEDI"]]
-      ]
-    ])
-
-    let result = try response.parseResult()
-
-    XCTAssertEqual(result.data?.hero?.name, "R2-D2")
-    XCTAssertEqual(result.data?.hero?.appearsIn, [.newhope, .empire, .jedi])
-  }
-
   func testTwoHeroesQuery() throws {
     let query = TwoHeroesQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "r2": ["__typename": "Droid", "name": "R2-D2"],
         "luke": ["__typename": "Human", "name": "Luke Skywalker"]
       ]
     ])
 
-    let result = try response.parseResult()
+    let (result, _) = try response.parseResult()
 
     XCTAssertEqual(result.data?.r2?.name, "R2-D2")
     XCTAssertEqual(result.data?.luke?.name, "Luke Skywalker")
   }
-
-  func testHeroDetailsQueryHuman() throws {
-    let query = HeroDetailsQuery(episode: .empire)
-    let response = GraphQLResponse(operation: query, rootObject: [
-      "data": [
-        "hero": ["__typename": "Human", "name": "Luke Skywalker", "height": 1.72]
-      ]
-    ])
-
-    let result = try response.parseResult()
-
-    guard let human = result.data?.hero?.asHuman else {
-      XCTFail("Wrong type")
-      return
-    }
-    XCTAssertEqual(human.height, 1.72)
-  }
-
+  
   func testHeroDetailsQueryDroid() throws {
     let query = HeroDetailsQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["__typename": "Droid", "name": "R2-D2", "primaryFunction": "Astromech"]
       ]
     ])
     
-    let result = try response.parseResult()
-
+    let (result, _) = try response.parseResult()
+    
     guard let droid = result.data?.hero?.asDroid else {
       XCTFail("Wrong type")
       return
     }
+    
     XCTAssertEqual(droid.primaryFunction, "Astromech")
+  }
+
+  func testHeroDetailsQueryHuman() throws {
+    let query = HeroDetailsQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
+      "data": [
+        "hero": ["__typename": "Human", "name": "Luke Skywalker", "height": 1.72]
+      ]
+    ])
+
+    let (result, _) = try response.parseResult()
+
+    guard let human = result.data?.hero?.asHuman else {
+      XCTFail("Wrong type")
+      return
+    }
+    
+    XCTAssertEqual(human.height, 1.72)
   }
 
   func testHeroDetailsQueryUnknownTypename() throws {
     let query = HeroDetailsQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["__typename": "Pokemon", "name": "Charmander"]
       ]
     ])
 
-    let result = try response.parseResult()
+    let (result, _) = try response.parseResult()
 
     XCTAssertEqual(result.data?.hero?.name, "Charmander")
   }
 
   func testHeroDetailsQueryMissingTypename() throws {
-    let query = HeroDetailsQuery(episode: .empire)
-    let response = GraphQLResponse(operation: query, rootObject: [
+    let query = HeroDetailsQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["name": "Luke Skywalker", "height": 1.72]
       ]
@@ -183,21 +198,124 @@ class ParseQueryResponseTests: XCTestCase {
       }
     }
   }
-
-  func testHeroDetailsFragmentQueryHuman() throws {
+  
+  func testHeroDetailsWithFragmentQueryDroid() throws {
     let query = HeroDetailsWithFragmentQuery()
-    let response = GraphQLResponse(operation: query, rootObject: [
+    
+    let response = GraphQLResponse(operation: query, body: [
+      "data": [
+        "hero": ["__typename": "Droid", "name": "R2-D2", "primaryFunction": "Astromech"]
+      ]
+    ])
+    
+    let (result, _) = try response.parseResult()
+    
+    guard let droid = result.data?.hero?.fragments.heroDetails.asDroid else {
+      XCTFail("Wrong type")
+      return
+    }
+    
+    XCTAssertEqual(droid.primaryFunction, "Astromech")
+  }
+
+  func testHeroDetailsWithFragmentQueryHuman() throws {
+    let query = HeroDetailsWithFragmentQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
       "data": [
         "hero": ["__typename": "Human", "name": "Luke Skywalker", "height": 1.72]
       ]
     ])
 
-    let result = try response.parseResult()
+    let (result, _) = try response.parseResult()
 
     guard let human = result.data?.hero?.fragments.heroDetails.asHuman else {
       XCTFail("Wrong type")
       return
     }
+    
     XCTAssertEqual(human.height, 1.72)
+  }
+  
+  // MARK: Mutations
+  
+  func testCreateReviewForEpisode() throws {
+    let mutation = CreateReviewForEpisodeMutation(episode: .jedi, review: ReviewInput(stars: 5, commentary: "This is a great movie!"))
+    
+    let response = GraphQLResponse(operation: mutation, body: [
+      "data": [
+        "createReview": [
+          "__typename": "Review",
+          "stars": 5,
+          "commentary": "This is a great movie!"
+        ]
+      ]
+    ])
+    
+    let (result, _) = try response.parseResult()
+    
+    XCTAssertEqual(result.data?.createReview?.stars, 5)
+    XCTAssertEqual(result.data?.createReview?.commentary, "This is a great movie!")
+  }
+  
+  // MARK: - Error responses
+  
+  func testErrorResponseWithoutLocation() throws {
+    let query = HeroNameQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
+      "errors": [
+        [
+          "message": "Some error",
+        ]
+      ]
+      ])
+    
+    let (result, _) = try response.parseResult()
+    
+    XCTAssertNil(result.data)
+    XCTAssertEqual(result.errors?.first?.message, "Some error")
+    XCTAssertNil(result.errors?.first?.locations)
+  }
+  
+  func testErrorResponseWithLocation() throws {
+    let query = HeroNameQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
+      "errors": [
+        [
+          "message": "Some error",
+          "locations": [
+            ["line": 1, "column": 2]
+          ]
+        ]
+      ]
+    ])
+    
+    let (result, _) = try response.parseResult()
+    
+    XCTAssertNil(result.data)
+    XCTAssertEqual(result.errors?.first?.message, "Some error")
+    XCTAssertEqual(result.errors?.first?.locations?.first?.line, 1)
+    XCTAssertEqual(result.errors?.first?.locations?.first?.column, 2)
+  }
+  
+  func testErrorResponseWithCustomError() throws {
+    let query = HeroNameQuery()
+    
+    let response = GraphQLResponse(operation: query, body: [
+      "errors": [
+        [
+          "message": "Some error",
+          "userMessage": "Some message"
+        ]
+      ]
+    ])
+    
+    let (result, _) = try response.parseResult()
+    
+    XCTAssertNil(result.data)
+    XCTAssertEqual(result.errors?.first?.message, "Some error")
+    XCTAssertEqual(result.errors?.first?["userMessage"] as? String, "Some message")
   }
 }
