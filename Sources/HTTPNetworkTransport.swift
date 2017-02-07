@@ -46,6 +46,7 @@ public class HTTPNetworkTransport: NetworkTransport {
   let url: URL
   let session: URLSession
   let serializationFormat = JSONSerializationFormat.self
+  public var headers: [String:String] = [:]
   
   /// Creates a network transport with the specified server URL and session configuration.
   ///
@@ -60,6 +61,7 @@ public class HTTPNetworkTransport: NetworkTransport {
   public func send<Operation: GraphQLOperation>(operation: Operation, completionHandler: @escaping (GraphQLResponse<Operation>?, Error?) -> Void) -> Cancellable {
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
+    request.allHTTPHeaderFields = headers
     
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
     
